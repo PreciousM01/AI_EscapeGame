@@ -13,48 +13,138 @@ const PromptingChallenge = ({ onComplete, addAIMessage }) => {
       scenario: "🤖 AI Response: 'I found many results about fruit.'",
       problem: "The user asked: 'Tell me about Apple'",
       issue: "The AI misunderstood and gave information about the fruit instead of the company.",
-      correctPrompts: [
-        "tell me abotut apple inc",
-        "apple company information",
-        "apple inc the technology company",
-        "information about apple corporation",
-        "apple the tech company"
-      ],
       hint: "Be more specific about which 'Apple' you mean. Add context like 'company' or 'Inc.'",
-      explanation: "Adding context helps AI distinguish between different meanings of the same word."
+      explanation: "Adding context helps AI distinguish between different meanings of the same word.",
+      examples: [
+        "Apple Inc company information",
+        "Tell me about Apple the technology company", 
+        "What does Apple corporation do?",
+        "Apple computer business details"
+      ]
     },
     {
       id: 2,
       scenario: "🤖 AI Response: 'Here's a 500-word essay about dogs in general.'",
       problem: "The user asked: 'Write about dogs'",
       issue: "Too vague - the AI provided generic information instead of what the user actually wanted.",
-      correctPrompts: [
-        "write a 200 word guide on dog training tips",
-        "explain how to care for a new puppy",
-        "list the best dog breeds for families with children",
-        "write about dog nutrition and feeding schedules",
-        "describe different dog training methods"
-      ],
       hint: "Be specific about what aspect of dogs you want to know about and the format you prefer.",
-      explanation: "Specific prompts with clear requirements produce much better, targeted responses."
+      explanation: "Specific prompts with clear requirements produce much better, targeted responses.",
+      examples: [
+        "Write a guide on dog training tips for puppies",
+        "List the best dog breeds for families with children",
+        "Explain how to care for a new puppy",
+        "Dog nutrition and feeding schedules guide"
+      ]
     }
   ]
 
-  const challenge = challenges[currentChallenge]
+  const validatePrompt = (userInput, challenge) => {
+    const input = userInput.toLowerCase().trim()
+    
+    if (challenge.id === 1) {
+      // Apple challenge validation
+      if (!input.includes('apple')) {
+        return { valid: false, reason: "Must mention Apple" }
+      }
+      
+      // Check for context that disambiguates from fruit
+      const contextWords = [
+        'company', 'inc', 'corporation', 'business', 'tech', 'technology', 
+        'computer', 'manufacturer', 'iphone', 'mac', 'ipad', 'software',
+        'hardware', 'electronics', 'enterprise', 'firm', 'organization'
+      ]
+      const hasContext = contextWords.some(word => input.includes(word))
+      
+      // Check for fruit-related confusion
+      const fruitWords = ['fruit', 'food', 'tree', 'juice', 'red', 'green', 'eat', 'sweet', 'orchard']
+      const hasFruitConfusion = fruitWords.some(word => input.includes(word))
+      
+      if (hasFruitConfusion) {
+        return { valid: false, reason: "Still sounds like you mean the fruit" }
+      }
+      
+      // If no clear context and it's short, it's probably still ambiguous
+      if (!hasContext && input.length < 15) {
+        return { valid: false, reason: "Needs more context to distinguish from fruit" }
+      }
+      
+      // Special case: if it's long enough and doesn't contain fruit words, probably okay
+      if (input.length >= 20 && !hasFruitConfusion) {
+        return { valid: true, reason: "Clear and detailed!" }
+      }
+      
+      if (hasContext) {
+        return { valid: true, reason: "Clear disambiguation!" }
+      }
+      
+      return { valid: false, reason: "Try being more specific about which Apple you mean" }
+    }
+    
+    if (challenge.id === 2) {
+      // Dogs challenge validation
+      if (input.length < 12) {
+        return { valid: false, reason: "Too short - be more specific" }
+      }
+      
+      // Check for vague patterns that are just variations of "dogs" or "write about dogs"
+      const vaguePhrases = /^(write\s+)?(about\s+)?dogs?(\s+please)?[.!?]*$/i
+      if (vaguePhrases.test(input.trim())) {
+        return { valid: false, reason: "Still too vague - what about dogs specifically?" }
+      }
+      
+      // Check for other overly general patterns
+      const generalPhrases = [
+        /^tell\s+me\s+about\s+dogs?[.!?]*$/i,
+        /^dogs?\s+information[.!?]*$/i,
+        /^everything\s+about\s+dogs?[.!?]*$/i,
+        /^dogs?\s+facts[.!?]*$/i
+      ]
+      
+      if (generalPhrases.some(pattern => pattern.test(input.trim()))) {
+        return { valid: false, reason: "Still too general - what specific aspect of dogs?" }
+      }
+      
+      // Check for specificity indicators
+      const specificTopics = [
+        'training', 'care', 'breeds', 'nutrition', 'feeding', 'puppy', 'puppies',
+        'exercise', 'grooming', 'health', 'behavior', 'adoption', 'rescue',
+        'walking', 'playing', 'toys', 'commands', 'obedience', 'socialization',
+        'vaccination', 'vet', 'medical', 'size', 'personality', 'temperament',
+        'costs', 'expenses', 'choosing', 'selecting', 'first time', 'beginner'
+      ]
+      
+      const formatWords = [
+        'guide', 'tips', 'list', 'how to', 'steps', 'ways', 'methods',
+        'explain', 'describe', 'compare', 'best', 'top', 'recommend',
+        'tutorial', 'instructions', 'advice', 'help', 'overview', 'summary'
+      ]
+      
+      const hasSpecificTopic = specificTopics.some(topic => input.includes(topic))
+      const hasFormatRequest = formatWords.some(format => input.includes(format))
+      
+      // Also accept if they mention specific dog-related actions or scenarios
+      const actionWords = [
+        'teach', 'train', 'feed', 'walk', 'play', 'groom', 'brush',
+        'bathe', 'house breaking', 'potty training', 'leash training'
+      ]
+      const hasActionWord = actionWords.some(action => input.includes(action))
+      
+      if (!hasSpecificTopic && !hasFormatRequest && !hasActionWord) {
+        return { valid: false, reason: "Be more specific about what aspect of dogs you want" }
+      }
+      
+      return { valid: true, reason: "Much clearer and more specific!" }
+    }
+    
+    return { valid: false, reason: "Unknown challenge" }
+  }
 
   const checkPrompt = () => {
-    const input = userInput.toLowerCase().trim()
-    const isCorrect = challenge.correctPrompts.some(correct => 
-      input.includes(correct.toLowerCase()) || 
-      (input.length > 10 && challenge.correctPrompts.some(c => 
-        c.split(' ').every(word => input.includes(word.toLowerCase()))
-      ))
-    )
-
+    const validation = validatePrompt(userInput, challenges[currentChallenge])
     setAttempts(prev => prev + 1)
 
-    if (isCorrect) {
-      addAIMessage("Perfect! That's a much clearer prompt that would get better results.")
+    if (validation.valid) {
+      addAIMessage(`Perfect! ${validation.reason} That's a much clearer prompt that would get better results.`)
       
       if (currentChallenge < challenges.length - 1) {
         setTimeout(() => {
@@ -68,14 +158,15 @@ const PromptingChallenge = ({ onComplete, addAIMessage }) => {
         setTimeout(() => onComplete(), 2000)
       }
     } else {
+      addAIMessage(`${validation.reason} Try again!`)
+      
       if (attempts >= 2) {
         setShowHint(true)
-        addAIMessage("Try being more specific about what you want. Check the hint below!")
-      } else {
-        addAIMessage("That prompt might still be unclear. Try being more specific!")
       }
     }
   }
+
+  const challenge = challenges[currentChallenge]
 
   if (completed) {
     return (
@@ -94,7 +185,7 @@ const PromptingChallenge = ({ onComplete, addAIMessage }) => {
         <h3>Scenario {currentChallenge + 1} of {challenges.length}</h3>
         
         <div style={{background: 'rgba(255, 68, 68, 0.1)', padding: '1rem', borderRadius: '8px', margin: '1rem 0'}}>
-          <h4>❌ What Went Wrong:</h4>
+          <h4>⚠ What Went Wrong:</h4>
           <p><strong>User's Request:</strong> "{challenge.problem}"</p>
           <p><strong>AI's Response:</strong> {challenge.scenario}</p>
           <p><strong>Issue:</strong> {challenge.issue}</p>
@@ -118,6 +209,14 @@ const PromptingChallenge = ({ onComplete, addAIMessage }) => {
           <div style={{background: 'rgba(255, 165, 0, 0.1)', padding: '1rem', borderRadius: '8px', margin: '1rem 0'}}>
             <h4>💡 Hint:</h4>
             <p>{challenge.hint}</p>
+            <div style={{marginTop: '0.5rem', fontSize: '0.9rem', opacity: 0.8}}>
+              <strong>Examples of good prompts:</strong>
+              <ul style={{margin: '0.5rem 0', paddingLeft: '1.2rem'}}>
+                {challenge.examples.map((example, i) => (
+                  <li key={i} style={{marginBottom: '0.25rem'}}>{example}</li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
 
@@ -125,6 +224,10 @@ const PromptingChallenge = ({ onComplete, addAIMessage }) => {
           className="submit-button"
           onClick={checkPrompt}
           disabled={!userInput.trim()}
+          style={{
+            opacity: !userInput.trim() ? 0.5 : 1,
+            cursor: !userInput.trim() ? 'not-allowed' : 'pointer'
+          }}
         >
           🚀 Test Prompt
         </button>
@@ -137,6 +240,16 @@ const PromptingChallenge = ({ onComplete, addAIMessage }) => {
       <div className="did-you-know">
         <h4>💡 Did You Know?</h4>
         <p>Good prompts are specific, provide context, and clearly state the desired format or outcome. This is called "prompt engineering" and it's a crucial skill for working with AI!</p>
+        {currentChallenge === 0 && (
+          <p style={{marginTop: '0.5rem', fontSize: '0.9rem'}}>
+            <strong>Pro tip:</strong> When a word has multiple meanings (like "Apple"), always add context to clarify which one you mean!
+          </p>
+        )}
+        {currentChallenge === 1 && (
+          <p style={{marginTop: '0.5rem', fontSize: '0.9rem'}}>
+            <strong>Pro tip:</strong> Instead of asking about a topic in general, specify what aspect you want to know about and in what format!
+          </p>
+        )}
       </div>
     </div>
   )

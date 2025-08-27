@@ -96,10 +96,21 @@ body {
 
 .ai-avatar {
   font-size: 3rem;
-  animation: pulse 2s infinite;
+  animation: avatarPulse 2s infinite;
+  transition: all 0.3s ease;
 }
 
-@keyframes pulse {
+.ai-avatar.clickable {
+  cursor: pointer;
+  transform-origin: center;
+}
+
+.ai-avatar.clickable:hover {
+  transform: scale(1.1);
+  text-shadow: 0 0 20px #00d4ff;
+}
+
+@keyframes avatarPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
 }
@@ -125,17 +136,28 @@ body {
 }
 
 .ai-message {
-  background: rgba(0, 212, 255, 0.1);
-  border-left: 3px solid #00d4ff;
-  padding: 1rem;
-  margin: 1rem 0;
-  border-radius: 0 10px 10px 0;
-  animation: slideIn 0.5s ease;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 212, 255, 0.05));
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  margin: 0.5rem 0;
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1.5;
+  animation: messageSlideIn 0.5s ease-out;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 212, 255, 0.1);
 }
 
-@keyframes slideIn {
-  from { transform: translateX(-100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .puzzle-area {
@@ -184,7 +206,7 @@ body {
 .module-indicator.active {
   background: #00d4ff;
   color: #000;
-  animation: glow 2s infinite;
+  animation: indicatorGlow 2s infinite;
 }
 
 .module-indicator.locked {
@@ -192,9 +214,75 @@ body {
   color: #666;
 }
 
-@keyframes glow {
+@keyframes indicatorGlow {
   0%, 100% { box-shadow: 0 0 5px #00d4ff; }
   50% { box-shadow: 0 0 20px #00d4ff; }
+}
+
+/* Loading States */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 2rem;
+  transition: all 0.3s ease;
+}
+
+.loading-state.clickable {
+  cursor: pointer;
+  border-radius: 15px;
+}
+
+.loading-state.clickable:hover {
+  background: rgba(0, 212, 255, 0.05);
+  transform: scale(1.02);
+}
+
+.loading-content {
+  text-align: center;
+  color: #00d4ff;
+}
+
+.loading-spinner {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: spinnerPulse 2s infinite;
+}
+
+.loading-content p {
+  font-size: 1.2rem;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.skip-instruction, .skip-hint {
+  margin-top: 0.5rem;
+  opacity: 0.7;
+  color: #ffa500;
+  font-style: italic;
+  animation: gentle-pulse 2s infinite;
+}
+
+.skip-hint {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+@keyframes gentle-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes spinnerPulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 .ambient-elements {
@@ -225,6 +313,7 @@ body {
   100% { transform: translate(50px, 50px); }
 }
 
+/* Quiz and Puzzle Components */
 .quiz-container, .challenge-container, .puzzle-container {
   max-width: 800px;
 }
@@ -346,6 +435,7 @@ body {
   margin-bottom: 0.5rem;
 }
 
+/* Responsive Design */
 @media (max-width: 768px) {
   .escape-room {
     grid-template-columns: 1fr;
@@ -361,5 +451,10 @@ body {
   
   .options-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .ai-interface {
+    position: relative;
+    top: auto;
   }
 }

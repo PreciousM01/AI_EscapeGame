@@ -12,39 +12,173 @@ function App() {
   const [completedPuzzles, setCompletedPuzzles] = useState([])
   const [gameStarted, setGameStarted] = useState(false)
   const [aiMessages, setAiMessages] = useState([])
+  const [showPuzzle, setShowPuzzle] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [activeTimeout, setActiveTimeout] = useState(null)
+  const [canSkip, setCanSkip] = useState(false)
+  const [transitionType, setTransitionType] = useState('') // 'welcome', 'intro', 'completion'
 
   const puzzles = [
-    { component: AIBasicsQuiz, title: "AI Capabilities Assessment" },
-    { component: PromptingChallenge, title: "Communication Protocol" },
-    { component: PrivacyPuzzle, title: "Data Security Analysis" },
-    { component: ConsciousnessPuzzle, title: "Pattern Recognition Study" },
-    { component: ResponsibleAI, title: "Ethics Evaluation" }
+    { 
+      component: AIBasicsQuiz, 
+      title: "AI Capabilities Assessment",
+      introMessage: "Let's start with the basics. I need to assess your understanding of AI capabilities and limitations. This will help me calibrate my systems properly."
+    },
+    { 
+      component: PromptingChallenge, 
+      title: "Communication Protocol",
+      introMessage: "Now I need to test our communication interface. My language processing module seems to be misinterpreting requests. Help me fix this by showing you understand clear communication."
+    },
+    { 
+      component: PrivacyPuzzle, 
+      title: "Data Security Analysis",
+      introMessage: "My privacy protocols are showing warnings. I need to verify that you understand data protection principles before we can continue with sensitive operations."
+    },
+    { 
+      component: ConsciousnessPuzzle, 
+      title: "Pattern Recognition Study",
+      introMessage: "There's something unusual happening with my self-awareness subroutines. I need you to help me understand what consciousness and intelligence really mean."
+    },
+    { 
+      component: ResponsibleAI, 
+      title: "Ethics Evaluation",
+      introMessage: "This is the final diagnostic. My ethical decision-making framework needs calibration. Show me you understand responsible AI principles so I can trust my own judgment."
+    }
   ]
 
-  const addAIMessage = (message) => {
-    setAiMessages(prev => [...prev, message])
+  const addAIMessage = (message, duration = 10000) => {
+    const messageId = Date.now()
+    setAiMessages(prev => [...prev, { id: messageId, text: message, duration }])
+    
     setTimeout(() => {
-      setAiMessages(prev => prev.slice(1))
-    }, 5000)
+      setAiMessages(prev => prev.filter(msg => msg.id !== messageId))
+    }, duration)
+  }
+
+  const addTransitionMessage = (message, duration = 10000) => {
+    const messageId = Date.now()
+    setAiMessages(prev => [...prev, { id: messageId, text: message, duration }])
+    
+    const timeoutId = setTimeout(() => {
+      setAiMessages(prev => prev.filter(msg => msg.id !== messageId))
+    }, duration)
+
+    // Store timeout ID for potential cleanup (only for transition messages)
+    setActiveTimeout(timeoutId)
+  }
+
+  const skipToNext = () => {
+    if (!canSkip) return
+    
+    // Clear any active timeouts
+    if (activeTimeout) {
+      clearTimeout(activeTimeout)
+      setActiveTimeout(null)
+    }
+    
+    // Clear only transition messages, not game messages
+    setAiMessages(prev => prev.filter(msg => 
+      // Keep messages that are shorter (game messages are usually shorter duration)
+      msg.duration <= 10000
+    ))
+    
+    // Handle different transition types
+    switch (transitionType) {
+      case 'welcome':
+        // Skip welcome message - go to first puzzle intro
+        showIntroMessage(0)
+        break
+      case 'intro':
+        // Skip intro message - show puzzle now
+        setShowPuzzle(true)
+        setIsTransitioning(false)
+        setCanSkip(false)
+        setTransitionType('')
+        break
+      case 'completion':
+        // Skip completion message - move to next step
+        if (currentPuzzle < puzzles.length - 1) {
+          setCurrentPuzzle(prev => prev + 1)
+          showIntroMessage(currentPuzzle + 1)
+        } else {
+          // Game complete
+          setIsTransitioning(false)
+          setCanSkip(false)
+          setTransitionType('')
+        }
+        break
+      default:
+        // Fallback
+        setCanSkip(false)
+        break
+    }
+  }
+
+  const showIntroMessage = (puzzleIndex) => {
+    const puzzle = puzzles[puzzleIndex]
+    setShowPuzzle(false)
+    setIsTransitioning(true)
+    setCanSkip(true)
+    setTransitionType('intro')
+    
+    // Show intro message for 15 seconds
+    addTransitionMessage(puzzle.introMessage, 15000)
+    
+    // Show puzzle after 15 seconds
+    const timeoutId = setTimeout(() => {
+      setShowPuzzle(true)
+      setIsTransitioning(false)
+      setCanSkip(false)
+      setTransitionType('')
+    }, 15000)
+    
+    setActiveTimeout(timeoutId)
   }
 
   const completePuzzle = (puzzleIndex) => {
     if (!completedPuzzles.includes(puzzleIndex)) {
       setCompletedPuzzles(prev => [...prev, puzzleIndex])
-      addAIMessage(`Excellent work! System module ${puzzleIndex + 1} restored.`)
+      setShowPuzzle(false)
+      setIsTransitioning(true)
+      setCanSkip(true)
+      setTransitionType('completion')
+      
+      // Show completion message
+      addTransitionMessage(`Excellent work! System module ${puzzleIndex + 1} restored.`, 10000)
       
       if (puzzleIndex < puzzles.length - 1) {
-        setTimeout(() => {
+        // After 10 seconds, show next puzzle intro
+        const timeoutId = setTimeout(() => {
           setCurrentPuzzle(puzzleIndex + 1)
-          addAIMessage(`Initializing next diagnostic module...`)
-        }, 2000)
+          showIntroMessage(puzzleIndex + 1)
+        }, 10000)
+        
+        setActiveTimeout(timeoutId)
+      } else {
+        // Game complete after 10 seconds
+        const timeoutId = setTimeout(() => {
+          setIsTransitioning(false)
+          setCanSkip(false)
+          setTransitionType('')
+        }, 10000)
+        
+        setActiveTimeout(timeoutId)
       }
     }
   }
 
   useEffect(() => {
-    if (gameStarted) {
-      addAIMessage("Welcome, new hires! I'm experiencing some system glitches. Help me restore my functions by completing these diagnostic modules.")
+    if (gameStarted && !isTransitioning) {
+      setCanSkip(true)
+      setTransitionType('welcome')
+      addTransitionMessage("Welcome, new hires! I'm experiencing some system glitches. Help me restore my functions by completing these diagnostic modules.", 15000)
+      
+      // Start first puzzle after welcome message
+      const timeoutId = setTimeout(() => {
+        showIntroMessage(0)
+      }, 15000)
+      
+      setActiveTimeout(timeoutId)
     }
   }, [gameStarted])
 
@@ -70,7 +204,7 @@ function App() {
     )
   }
 
-  if (completedPuzzles.length === puzzles.length) {
+  if (completedPuzzles.length === puzzles.length && !isTransitioning) {
     return <GameComplete />
   }
 
@@ -80,7 +214,13 @@ function App() {
     <div className="escape-room">
       <div className="ai-interface">
         <div className="ai-status">
-          <div className="ai-avatar">🤖</div>
+          <div 
+            className={`ai-avatar ${canSkip ? 'clickable' : ''}`}
+            onClick={skipToNext}
+            title={canSkip ? "Click to skip to next step" : ""}
+          >
+            🤖
+          </div>
           <div className="system-status">
             <h3>AI Assistant Status</h3>
             <div className="progress-bar">
@@ -93,9 +233,14 @@ function App() {
           </div>
         </div>
         
-        {aiMessages.map((message, index) => (
-          <div key={index} className="ai-message">
-            💬 {message}
+        {aiMessages.map((message) => (
+          <div key={message.id} className="ai-message">
+            💬 {message.text}
+            {canSkip && message.duration > 10000 && (
+              <div className="skip-hint">
+                <small>💡 Click the robot to skip ahead</small>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -118,10 +263,42 @@ function App() {
           </div>
         </div>
         
-        <CurrentPuzzleComponent 
-          onComplete={() => completePuzzle(currentPuzzle)}
-          addAIMessage={addAIMessage}
-        />
+        {showPuzzle && !isTransitioning ? (
+          <CurrentPuzzleComponent 
+            onComplete={() => completePuzzle(currentPuzzle)}
+            addAIMessage={addAIMessage}
+          />
+        ) : (
+          <div 
+            className={`loading-state ${canSkip ? 'clickable' : ''}`}
+            onClick={skipToNext}
+            title={canSkip ? "Click to skip to next step" : ""}
+          >
+            <div className="loading-content">
+              {isTransitioning ? (
+                <>
+                  <div className="loading-spinner">🔄</div>
+                  <p>Processing diagnostic data...</p>
+                  {canSkip && (
+                    <div className="skip-instruction">
+                      <small>💡 Click anywhere to skip</small>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="loading-spinner">⚡</div>
+                  <p>Initializing AI diagnostic systems...</p>
+                  {canSkip && (
+                    <div className="skip-instruction">
+                      <small>💡 Click anywhere to skip</small>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="ambient-elements">

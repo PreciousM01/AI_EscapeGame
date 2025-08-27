@@ -5,6 +5,10 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
   const [selectedChoices, setSelectedChoices] = useState({})
   const [showResults, setShowResults] = useState(false)
   const [score, setScore] = useState(0)
+  const [failedQuestions, setFailedQuestions] = useState([])
+  const [isRetaking, setIsRetaking] = useState(false)
+  const [retakeIndex, setRetakeIndex] = useState(0)
+  const [originalAttemptResults, setOriginalAttemptResults] = useState({})
 
   const scenarios = [
     {
@@ -146,10 +150,25 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
     }))
   }
 
+  const getCurrentScenario = () => {
+    if (isRetaking) {
+      return failedQuestions[retakeIndex]
+    }
+    return scenarios[currentScenario]
+  }
+
   const submitScenario = () => {
-    const scenario = scenarios[currentScenario]
+    const scenario = getCurrentScenario()
     const selectedChoice = selectedChoices[scenario.id]
     const choice = scenario.choices.find(c => c.id === selectedChoice)
+    
+    // Track results for original attempt
+    if (!isRetaking) {
+      setOriginalAttemptResults(prev => ({
+        ...prev,
+        [scenario.id]: choice.responsible
+      }))
+    }
     
     if (choice.responsible) {
       setScore(prev => prev + 1)
@@ -158,22 +177,84 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
     addAIMessage(choice.feedback)
     
     setTimeout(() => {
-      if (currentScenario < scenarios.length - 1) {
-        setCurrentScenario(prev => prev + 1)
-      } else {
-        setShowResults(true)
-        const finalScore = score + (choice.responsible ? 1 : 0)
-        if (finalScore >= 4) {
-          addAIMessage("Outstanding! You understand responsible AI principles.")
-          setTimeout(() => onComplete(), 2000)
+      if (isRetaking) {
+        // Handle retaking failed questions
+        if (retakeIndex < failedQuestions.length - 1) {
+          // Move to next failed question
+          setRetakeIndex(prev => prev + 1)
         } else {
-          addAIMessage(`You got ${finalScore}/${scenarios.length} correct. Review the principles and try again!`)
-          setTimeout(() => {
-            setCurrentScenario(0)
-            setSelectedChoices({})
-            setShowResults(false)
-            setScore(0)
-          }, 3000)
+          // Finished retaking all failed questions - calculate final score
+          const retakeScore = failedQuestions.reduce((total, failedScenario) => {
+            const selectedChoice = selectedChoices[failedScenario.id]
+            const choice = failedScenario.choices.find(c => c.id === selectedChoice)
+            return total + (choice?.responsible ? 1 : 0)
+          }, 0)
+
+          // Add score from questions they got right the first time
+          const originalCorrectCount = Object.entries(originalAttemptResults)
+            .filter(([scenarioId, wasCorrect]) => 
+              wasCorrect && !failedQuestions.some(q => q.id === parseInt(scenarioId))
+            ).length
+
+          const finalScore = originalCorrectCount + retakeScore
+          
+          if (finalScore >= 4) {
+            addAIMessage("Excellent improvement! You now understand responsible AI principles.")
+            setTimeout(() => onComplete(), 2000)
+          } else {
+            // Find questions they still got wrong
+            const stillFailedQuestions = failedQuestions.filter(failedScenario => {
+              const selectedChoice = selectedChoices[failedScenario.id]
+              const choice = failedScenario.choices.find(c => c.id === selectedChoice)
+              return !choice?.responsible
+            })
+            
+            if (stillFailedQuestions.length > 0) {
+              addAIMessage(`You're improving! Let's review the remaining ${stillFailedQuestions.length} questions you missed.`)
+              // Reset for another retry of still-failed questions
+              setTimeout(() => {
+                setFailedQuestions(stillFailedQuestions)
+                setRetakeIndex(0)
+                setSelectedChoices({})
+              }, 3000)
+            } else {
+              // This shouldn't happen, but just in case
+              setTimeout(() => onComplete(), 1000)
+            }
+          }
+        }
+      } else {
+        // Handle original attempt
+        if (currentScenario < scenarios.length - 1) {
+          setCurrentScenario(prev => prev + 1)
+        } else {
+          // Finished all original questions
+          const finalScore = score + (choice.responsible ? 1 : 0)
+          setShowResults(true)
+          
+          if (finalScore >= 4) {
+            addAIMessage("Outstanding! You understand responsible AI principles.")
+            setTimeout(() => onComplete(), 2000)
+          } else {
+            // Identify failed questions for retake
+            const failed = scenarios.filter(scenario => {
+              const selectedChoice = selectedChoices[scenario.id]
+              const selectedChoiceObj = scenario.choices.find(c => c.id === selectedChoice)
+              return !selectedChoiceObj?.responsible
+            })
+            
+            setFailedQuestions(failed)
+            
+            addAIMessage(`You got ${finalScore}/${scenarios.length} correct. Let's review just the ${failed.length} questions you missed.`)
+            setTimeout(() => {
+              setShowResults(false)
+              setIsRetaking(true)
+              setRetakeIndex(0)
+              // Don't reset currentScenario when going into retake mode
+              setScore(0) // Reset score for retake counting
+              setSelectedChoices({}) // Clear previous selections
+            }, 3000)
+          }
         }
       }
     }, 3000)
@@ -184,23 +265,32 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
     return (
       <div className="puzzle-container">
         <div className={finalScore >= 4 ? "success-message" : "error-message"}>
-          <h3>{finalScore >= 4 ? "🎉 Ethics Module Complete!" : "📚 Keep Learning"}</h3>
+          <h3>{finalScore >= 4 ? "🎉 Ethics Module Complete!" : "📚 Let's Review"}</h3>
           <p>You scored {finalScore}/{scenarios.length} on responsible AI scenarios.</p>
           {finalScore >= 4 ? (
             <p>You've demonstrated strong understanding of AI ethics and responsible deployment!</p>
           ) : (
-            <p>Review the feedback and try again. Understanding AI ethics is crucial for responsible development!</p>
+            <p>Don't worry! We'll review just the {failedQuestions.length} questions you missed to help you improve.</p>
           )}
         </div>
       </div>
     )
   }
 
-  const scenario = scenarios[currentScenario]
+  const scenario = getCurrentScenario()
+  const questionNumber = isRetaking ? retakeIndex + 1 : currentScenario + 1
+  const totalQuestions = isRetaking ? failedQuestions.length : scenarios.length
 
   return (
     <div className="puzzle-container">
       <div className="question-card">
+        {isRetaking && (
+          <div style={{background: 'rgba(255, 165, 0, 0.1)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem'}}>
+            <h4>🔄 Review Mode</h4>
+            <p>You're reviewing the questions you missed. Focus on the ethical principles!</p>
+          </div>
+        )}
+        
         <h3>{scenario.title}</h3>
         <div style={{background: 'rgba(255, 255, 255, 0.1)', padding: '1.5rem', borderRadius: '8px', margin: '1.5rem 0'}}>
           <h4>Situation:</h4>
@@ -232,16 +322,21 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
         </button>
 
         <div style={{textAlign: 'center', marginTop: '1.5rem'}}>
-          <p>Scenario {currentScenario + 1} of {scenarios.length}</p>
+          <p>
+            {isRetaking ? 'Review Question' : 'Scenario'} {questionNumber} of {totalQuestions}
+            {isRetaking && <span style={{color: '#ff9500'}}> (Retake)</span>}
+          </p>
           <div style={{display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem'}}>
-            {scenarios.map((_, index) => (
+            {Array.from({length: totalQuestions}).map((_, index) => (
               <div 
                 key={index}
                 style={{
                   width: '12px',
                   height: '12px',
                   borderRadius: '50%',
-                  background: index <= currentScenario ? '#00d4ff' : 'rgba(255, 255, 255, 0.3)'
+                  background: index <= (questionNumber - 1) ? 
+                    (isRetaking ? '#ff9500' : '#00d4ff') : 
+                    'rgba(255, 255, 255, 0.3)'
                 }}
               />
             ))}
@@ -252,6 +347,11 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
       <div className="did-you-know">
         <h4>💡 Did You Know?</h4>
         <p>Responsible AI development involves considering fairness, transparency, accountability, and human oversight. AI should augment human capabilities, not replace human judgment in critical decisions!</p>
+        {isRetaking && (
+          <p style={{marginTop: '0.5rem', color: '#ff9500'}}>
+            <strong>Review tip:</strong> Think about what could go wrong and how to keep humans in control of important decisions.
+          </p>
+        )}
       </div>
     </div>
   )
