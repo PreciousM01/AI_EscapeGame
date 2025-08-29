@@ -18,13 +18,13 @@ Players take on the role of new hires helping a glitched AI assistant restore it
 
 ```bash
 # Install dependencies
-npm install
+bun install
 
 # Start development server
-npm run dev
+bun dev
 
 # Build for production
-npm run build
+bun run build
 ```
 
 ## 🎨 Features
