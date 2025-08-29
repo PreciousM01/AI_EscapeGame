@@ -1,11 +1,14 @@
 import { useState } from 'react'
 
-const PromptingChallenge = ({ onComplete, addAIMessage }) => {
+const PromptingChallenge = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
   const [currentChallenge, setCurrentChallenge] = useState(0)
   const [userInput, setUserInput] = useState('')
   const [attempts, setAttempts] = useState(0)
   const [showHint, setShowHint] = useState(false)
   const [completed, setCompleted] = useState(false)
+  const [waitingForNext, setWaitingForNext] = useState(false)
+  const [canSkipToNext, setCanSkipToNext] = useState(false)
+  const [clearMessages, setClearMessages] = useState(false)
 
   const challenges = [
     {
@@ -139,6 +142,40 @@ const PromptingChallenge = ({ onComplete, addAIMessage }) => {
     return { valid: false, reason: "Unknown challenge" }
   }
 
+  const moveToNextChallenge = () => {
+    setCurrentChallenge(prev => prev + 1)
+    setUserInput('')
+    setAttempts(0)
+    setShowHint(false)
+    setWaitingForNext(false)
+    setCanSkipToNext(false)
+    if (nextTimeout) {
+      clearTimeout(nextTimeout)
+      setNextTimeout(null)
+    }
+  }
+
+  const skipToNextChallenge = () => {
+    if (!canSkipToNext) return
+    
+    // Clear all AI messages immediately
+    if (clearAllAIMessages) {
+      clearAllAIMessages()
+    }
+    
+    if (nextTimeout) {
+      clearTimeout(nextTimeout)
+      setNextTimeout(null)
+    }
+    
+    if (currentChallenge < challenges.length - 1) {
+      moveToNextChallenge()
+    } else {
+      setCompleted(true)
+      setTimeout(() => onComplete(), 1000)
+    }
+  }
+
   const checkPrompt = () => {
     const validation = validatePrompt(userInput, challenges[currentChallenge])
     setAttempts(prev => prev + 1)
@@ -147,12 +184,15 @@ const PromptingChallenge = ({ onComplete, addAIMessage }) => {
       addAIMessage(`Perfect! ${validation.reason} That's a much clearer prompt that would get better results.`)
       
       if (currentChallenge < challenges.length - 1) {
-        setTimeout(() => {
-          setCurrentChallenge(prev => prev + 1)
-          setUserInput('')
-          setAttempts(0)
-          setShowHint(false)
-        }, 2000)
+        setWaitingForNext(true)
+        setCanSkipToNext(true)
+        
+        // Wait 10 seconds for user to read the message, then move to next
+        const timeoutId = setTimeout(() => {
+          moveToNextChallenge()
+        }, 10000)
+        
+        setNextTimeout(timeoutId)
       } else {
         setCompleted(true)
         setTimeout(() => onComplete(), 2000)
@@ -174,6 +214,26 @@ const PromptingChallenge = ({ onComplete, addAIMessage }) => {
         <div className="success-message">
           <h3>🎉 Communication Protocol Restored!</h3>
           <p>You've mastered the art of clear AI communication. Well done!</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (waitingForNext) {
+    return (
+      <div className="challenge-container">
+        <div 
+          className="waiting-screen clickable"
+          onClick={skipToNextChallenge}
+          title="Click to continue to next challenge"
+        >
+          <div className="loading-content">
+            <div className="loading-spinner">✨</div>
+            <p>Preparing next communication test...</p>
+            <div className="skip-instruction">
+              <small>💡 Click anywhere to continue</small>
+            </div>
+          </div>
         </div>
       </div>
     )

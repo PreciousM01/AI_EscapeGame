@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const ResponsibleAI = ({ onComplete, addAIMessage }) => {
+const ResponsibleAI = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
   const [currentScenario, setCurrentScenario] = useState(0)
   const [selectedChoices, setSelectedChoices] = useState({})
   const [showResults, setShowResults] = useState(false)
@@ -9,6 +9,9 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
   const [isRetaking, setIsRetaking] = useState(false)
   const [retakeIndex, setRetakeIndex] = useState(0)
   const [originalAttemptResults, setOriginalAttemptResults] = useState({})
+  const [waitingForNext, setWaitingForNext] = useState(false)
+  const [canSkipToNext, setCanSkipToNext] = useState(false)
+  const [nextTimeout, setNextTimeout] = useState(null)
 
   const scenarios = [
     {
@@ -157,6 +160,108 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
     return scenarios[currentScenario]
   }
 
+  const moveToNextScenario = () => {
+    if (isRetaking) {
+      // Handle retaking failed questions
+      if (retakeIndex < failedQuestions.length - 1) {
+        // Move to next failed question
+        setRetakeIndex(prev => prev + 1)
+      } else {
+        // Finished retaking all failed questions - calculate final score
+        const retakeScore = failedQuestions.reduce((total, failedScenario) => {
+          const selectedChoice = selectedChoices[failedScenario.id]
+          const choice = failedScenario.choices.find(c => c.id === selectedChoice)
+          return total + (choice?.responsible ? 1 : 0)
+        }, 0)
+
+        // Add score from questions they got right the first time
+        const originalCorrectCount = Object.entries(originalAttemptResults)
+          .filter(([scenarioId, wasCorrect]) => 
+            wasCorrect && !failedQuestions.some(q => q.id === parseInt(scenarioId))
+          ).length
+
+        const finalScore = originalCorrectCount + retakeScore
+        
+        if (finalScore >= 4) {
+          if (clearAllAIMessages) clearAllAIMessages()
+          addAIMessage("Excellent improvement! You now understand responsible AI principles.")
+          setTimeout(() => onComplete(), 2000)
+        } else {
+          // Find questions they still got wrong
+          const stillFailedQuestions = failedQuestions.filter(failedScenario => {
+            const selectedChoice = selectedChoices[failedScenario.id]
+            const choice = failedScenario.choices.find(c => c.id === selectedChoice)
+            return !choice?.responsible
+          })
+          
+          if (stillFailedQuestions.length > 0) {
+            if (clearAllAIMessages) clearAllAIMessages()
+            addAIMessage(`You're improving! Let's review the remaining ${stillFailedQuestions.length} questions you missed.`)
+            setTimeout(() => {
+              setFailedQuestions(stillFailedQuestions)
+              setRetakeIndex(0)
+              setSelectedChoices({})
+            }, 3000)
+          } else {
+            setTimeout(() => onComplete(), 1000)
+          }
+        }
+      }
+    } else {
+      // Handle original attempt
+      if (currentScenario < scenarios.length - 1) {
+        setCurrentScenario(prev => prev + 1)
+      } else {
+        // Finished all original questions
+        const finalScore = score
+        setShowResults(true)
+        
+        if (finalScore >= 4) {
+          if (clearAllAIMessages) clearAllAIMessages()
+          addAIMessage("Outstanding! You understand responsible AI principles.")
+          setTimeout(() => onComplete(), 2000)
+        } else {
+          // Identify failed questions for retake
+          const failed = scenarios.filter(scenario => {
+            const selectedChoice = selectedChoices[scenario.id]
+            const selectedChoiceObj = scenario.choices.find(c => c.id === selectedChoice)
+            return !selectedChoiceObj?.responsible
+          })
+          
+          setFailedQuestions(failed)
+          
+          if (clearAllAIMessages) clearAllAIMessages()
+          addAIMessage(`You got ${finalScore}/${scenarios.length} correct. Let's review just the ${failed.length} questions you missed.`)
+          setTimeout(() => {
+            setShowResults(false)
+            setIsRetaking(true)
+            setRetakeIndex(0)
+            setScore(0)
+            setSelectedChoices({})
+          }, 3000)
+        }
+      }
+    }
+    
+    setWaitingForNext(false)
+    setCanSkipToNext(false)
+    if (nextTimeout) {
+      clearTimeout(nextTimeout)
+      setNextTimeout(null)
+    }
+  }
+
+  const skipToNextScenario = () => {
+    if (!canSkipToNext) return
+    
+    // Clear all AI messages immediately
+    if (clearAllAIMessages) {
+      clearAllAIMessages()
+    }
+    
+    moveToNextScenario()
+  }
+
   const submitScenario = () => {
     const scenario = getCurrentScenario()
     const selectedChoice = selectedChoices[scenario.id]
@@ -174,90 +279,17 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
       setScore(prev => prev + 1)
     }
     
-    addAIMessage(choice.feedback)
+    // Show AI feedback message for 10 seconds
+    addAIMessage(choice.feedback, 10000)
+    setWaitingForNext(true)
+    setCanSkipToNext(true)
     
-    setTimeout(() => {
-      if (isRetaking) {
-        // Handle retaking failed questions
-        if (retakeIndex < failedQuestions.length - 1) {
-          // Move to next failed question
-          setRetakeIndex(prev => prev + 1)
-        } else {
-          // Finished retaking all failed questions - calculate final score
-          const retakeScore = failedQuestions.reduce((total, failedScenario) => {
-            const selectedChoice = selectedChoices[failedScenario.id]
-            const choice = failedScenario.choices.find(c => c.id === selectedChoice)
-            return total + (choice?.responsible ? 1 : 0)
-          }, 0)
-
-          // Add score from questions they got right the first time
-          const originalCorrectCount = Object.entries(originalAttemptResults)
-            .filter(([scenarioId, wasCorrect]) => 
-              wasCorrect && !failedQuestions.some(q => q.id === parseInt(scenarioId))
-            ).length
-
-          const finalScore = originalCorrectCount + retakeScore
-          
-          if (finalScore >= 4) {
-            addAIMessage("Excellent improvement! You now understand responsible AI principles.")
-            setTimeout(() => onComplete(), 2000)
-          } else {
-            // Find questions they still got wrong
-            const stillFailedQuestions = failedQuestions.filter(failedScenario => {
-              const selectedChoice = selectedChoices[failedScenario.id]
-              const choice = failedScenario.choices.find(c => c.id === selectedChoice)
-              return !choice?.responsible
-            })
-            
-            if (stillFailedQuestions.length > 0) {
-              addAIMessage(`You're improving! Let's review the remaining ${stillFailedQuestions.length} questions you missed.`)
-              // Reset for another retry of still-failed questions
-              setTimeout(() => {
-                setFailedQuestions(stillFailedQuestions)
-                setRetakeIndex(0)
-                setSelectedChoices({})
-              }, 3000)
-            } else {
-              // This shouldn't happen, but just in case
-              setTimeout(() => onComplete(), 1000)
-            }
-          }
-        }
-      } else {
-        // Handle original attempt
-        if (currentScenario < scenarios.length - 1) {
-          setCurrentScenario(prev => prev + 1)
-        } else {
-          // Finished all original questions
-          const finalScore = score + (choice.responsible ? 1 : 0)
-          setShowResults(true)
-          
-          if (finalScore >= 4) {
-            addAIMessage("Outstanding! You understand responsible AI principles.")
-            setTimeout(() => onComplete(), 2000)
-          } else {
-            // Identify failed questions for retake
-            const failed = scenarios.filter(scenario => {
-              const selectedChoice = selectedChoices[scenario.id]
-              const selectedChoiceObj = scenario.choices.find(c => c.id === selectedChoice)
-              return !selectedChoiceObj?.responsible
-            })
-            
-            setFailedQuestions(failed)
-            
-            addAIMessage(`You got ${finalScore}/${scenarios.length} correct. Let's review just the ${failed.length} questions you missed.`)
-            setTimeout(() => {
-              setShowResults(false)
-              setIsRetaking(true)
-              setRetakeIndex(0)
-              // Don't reset currentScenario when going into retake mode
-              setScore(0) // Reset score for retake counting
-              setSelectedChoices({}) // Clear previous selections
-            }, 3000)
-          }
-        }
-      }
-    }, 3000)
+    // After 10 seconds, move to next scenario
+    const timeoutId = setTimeout(() => {
+      moveToNextScenario()
+    }, 10000)
+    
+    setNextTimeout(timeoutId)
   }
 
   if (showResults) {
@@ -272,6 +304,26 @@ const ResponsibleAI = ({ onComplete, addAIMessage }) => {
           ) : (
             <p>Don't worry! We'll review just the {failedQuestions.length} questions you missed to help you improve.</p>
           )}
+        </div>
+      </div>
+    )
+  }
+
+  if (waitingForNext) {
+    return (
+      <div className="puzzle-container">
+        <div 
+          className="waiting-screen clickable"
+          onClick={skipToNextScenario}
+          title="Click to continue to next question"
+        >
+          <div className="loading-content">
+            <div className="loading-spinner">⚖️</div>
+            <p>Processing ethical analysis...</p>
+            <div className="skip-instruction">
+              <small>💡 Click anywhere to continue</small>
+            </div>
+          </div>
         </div>
       </div>
     )

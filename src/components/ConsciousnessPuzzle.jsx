@@ -4,6 +4,10 @@ const ConsciousnessPuzzle = ({ onComplete, addAIMessage }) => {
   const [currentStep, setCurrentStep] = useState(0)
   const [userAnswers, setUserAnswers] = useState({})
   const [showExplanation, setShowExplanation] = useState(false)
+  const [internalMessage, setInternalMessage] = useState('')
+  const [showInternalMessage, setShowInternalMessage] = useState(false)
+  const [waitingForNext, setWaitingForNext] = useState(false)
+  const [nextTimeout, setNextTimeout] = useState(null)
 
   const puzzleSteps = [
     {
@@ -16,7 +20,8 @@ const ConsciousnessPuzzle = ({ onComplete, addAIMessage }) => {
         { id: 'c', text: '🟡 Yellow Circle', correct: false },
         { id: 'd', text: '🟢 Green Circle', correct: false }
       ],
-      explanation: "You recognized the alternating pattern! This is exactly how AI works - it finds patterns in data."
+      explanation: "You recognized the alternating pattern! This is exactly how AI works - it finds patterns in data.",
+      incorrectFeedback: "Think about the pattern - what comes after blue in this sequence?"
     },
     {
       id: 'pattern2', 
@@ -24,11 +29,12 @@ const ConsciousnessPuzzle = ({ onComplete, addAIMessage }) => {
       question: "An AI was trained on these examples:\n'The cat sat on the mat' → Happy\n'The dog ran in the park' → Happy\n'The bird flew away' → Sad\n\nWhat would it predict for 'The fish swam away'?",
       options: [
         { id: 'a', text: 'Happy - because it mentions an animal', correct: false },
-        { id: 'b', text: 'Sad - because it contains the word \"away\"', correct: true },
+        { id: 'b', text: 'Sad - because it contains the word "away"', correct: true },
         { id: 'c', text: 'Happy - because fish are nice', correct: false },
         { id: 'd', text: 'It would understand the fish is free', correct: false }
       ],
-      explanation: "Correct! The AI found the pattern that sentences with 'away' are classified as 'Sad'. It doesn't understand freedom or emotions - just word patterns."
+      explanation: "Correct! The AI found the pattern that sentences with 'away' are classified as 'Sad'. It doesn't understand freedom or emotions - just word patterns.",
+      incorrectFeedback: "Look at the training examples again. What pattern would the AI notice in the words?"
     },
     {
       id: 'understanding',
@@ -37,10 +43,11 @@ const ConsciousnessPuzzle = ({ onComplete, addAIMessage }) => {
       options: [
         { id: 'a', text: 'The child is slower at processing', correct: false },
         { id: 'b', text: 'The AI is more accurate', correct: false },
-        { id: 'c', text: 'The child understands what \"cat\" means, the AI just matches patterns', correct: true },
+        { id: 'c', text: 'The child understands what "cat" means, the AI just matches patterns', correct: true },
         { id: 'd', text: 'There is no difference', correct: false }
       ],
-      explanation: "Exactly! The child knows a cat is a living, breathing animal with feelings. The AI just learned that certain pixel patterns = 'cat' label."
+      explanation: "Exactly! The child knows a cat is a living, breathing animal with feelings. The AI just learned that certain pixel patterns = 'cat' label.",
+      incorrectFeedback: "Think about what 'understanding' really means versus pattern recognition."
     },
     {
       id: 'consciousness',
@@ -52,9 +59,53 @@ const ConsciousnessPuzzle = ({ onComplete, addAIMessage }) => {
         { id: 'c', text: 'The AI is reproducing language patterns it learned from training data', correct: true },
         { id: 'd', text: 'The AI is pretending to understand', correct: false }
       ],
-      explanation: "Perfect! AI generates human-like responses by predicting what words should come next based on patterns, not because it actually thinks or understands."
+      explanation: "Perfect! AI generates human-like responses by predicting what words should come next based on patterns, not because it actually thinks or understands.",
+      incorrectFeedback: "Consider how AI generates language - is it thinking or following patterns?"
     }
   ]
+
+  const showInternalFeedback = (message, isCorrect, duration = 5000) => {
+    setInternalMessage(message)
+    setShowInternalMessage(true)
+    setShowExplanation(isCorrect)
+    setWaitingForNext(true)
+    
+    const timeoutId = setTimeout(() => {
+      continueAfterMessage()
+    }, duration)
+    
+    setNextTimeout(timeoutId)
+  }
+
+  const skipInternalMessage = () => {
+    if (!waitingForNext) return
+    
+    if (nextTimeout) {
+      clearTimeout(nextTimeout)
+      setNextTimeout(null)
+    }
+    
+    continueAfterMessage()
+  }
+
+  const continueAfterMessage = () => {
+    setShowInternalMessage(false)
+    setInternalMessage('')
+    setWaitingForNext(false)
+    
+    if (showExplanation) {
+      // Was a correct answer
+      if (currentStep < puzzleSteps.length - 1) {
+        setCurrentStep(prev => prev + 1)
+        setShowExplanation(false)
+      } else {
+        // Completed all steps
+        addAIMessage("Excellent! You understand that AI processes patterns, not meaning.")
+        setTimeout(() => onComplete(), 2000)
+      }
+    }
+    // If incorrect answer, just hide the message and stay on same question
+  }
 
   const handleAnswer = (stepId, optionId) => {
     setUserAnswers(prev => ({
@@ -69,24 +120,44 @@ const ConsciousnessPuzzle = ({ onComplete, addAIMessage }) => {
     const correctOption = currentPuzzle.options.find(opt => opt.correct)
     
     if (userAnswer === correctOption.id) {
-      setShowExplanation(true)
-      addAIMessage(currentPuzzle.explanation)
-      
-      setTimeout(() => {
-        if (currentStep < puzzleSteps.length - 1) {
-          setCurrentStep(prev => prev + 1)
-          setShowExplanation(false)
-        } else {
-          addAIMessage("Excellent! You understand that AI processes patterns, not meaning.")
-          setTimeout(() => onComplete(), 2000)
-        }
-      }, 3000)
+      // Correct answer - show explanation in quiz interface
+      showInternalFeedback(currentPuzzle.explanation, true, 5000)
     } else {
-      addAIMessage("Think about how AI works with patterns rather than true understanding. Try again!")
+      // Incorrect answer - show feedback in quiz interface
+      showInternalFeedback(currentPuzzle.incorrectFeedback, false, 4000)
     }
   }
 
   const currentPuzzle = puzzleSteps[currentStep]
+
+  if (waitingForNext) {
+    return (
+      <div className="puzzle-container">
+        <div 
+          className="waiting-screen clickable"
+          onClick={skipInternalMessage}
+          title="Click to continue"
+        >
+          <div className="feedback-message">
+            <div className="feedback-content">
+              <div className={showExplanation ? "success-message" : "info-message"}>
+                <h4>{showExplanation ? "✅ Correct!" : "💭 Think About It"}</h4>
+                <p>{internalMessage}</p>
+                {showExplanation && currentStep < puzzleSteps.length - 1 && (
+                  <p style={{marginTop: '1rem', fontStyle: 'italic'}}>
+                    Moving to next step...
+                  </p>
+                )}
+              </div>
+              <div className="skip-instruction">
+                <small>💡 Click anywhere to continue</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="puzzle-container">
@@ -105,41 +176,21 @@ const ConsciousnessPuzzle = ({ onComplete, addAIMessage }) => {
               key={option.id}
               className={`option-button ${
                 userAnswers[currentPuzzle.id] === option.id ? 'selected' : ''
-              } ${
-                showExplanation ? (
-                  option.correct ? 'correct' : 
-                  userAnswers[currentPuzzle.id] === option.id ? 'incorrect' : ''
-                ) : ''
               }`}
-              onClick={() => !showExplanation && handleAnswer(currentPuzzle.id, option.id)}
-              disabled={showExplanation}
+              onClick={() => handleAnswer(currentPuzzle.id, option.id)}
             >
               {option.text}
             </button>
           ))}
         </div>
 
-        {showExplanation && (
-          <div className="success-message">
-            <h4>✅ Correct!</h4>
-            <p>{currentPuzzle.explanation}</p>
-            {currentStep < puzzleSteps.length - 1 && (
-              <p style={{marginTop: '1rem', fontStyle: 'italic'}}>
-                Moving to next step...
-              </p>
-            )}
-          </div>
-        )}
-
-        {!showExplanation && (
-          <button 
-            className="submit-button"
-            onClick={checkCurrentAnswer}
-            disabled={!userAnswers[currentPuzzle.id]}
-          >
-            🧠 Submit Answer
-          </button>
-        )}
+        <button 
+          className="submit-button"
+          onClick={checkCurrentAnswer}
+          disabled={!userAnswers[currentPuzzle.id]}
+        >
+          🧠 Submit Answer
+        </button>
 
         <div style={{marginTop: '2rem', textAlign: 'center'}}>
           <div style={{display: 'flex', justifyContent: 'center', gap: '0.5rem'}}>

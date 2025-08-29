@@ -17,6 +17,7 @@ function App() {
   const [activeTimeout, setActiveTimeout] = useState(null)
   const [canSkip, setCanSkip] = useState(false)
   const [transitionType, setTransitionType] = useState('') // 'welcome', 'intro', 'completion'
+  const [messageTimeouts, setMessageTimeouts] = useState([])
 
   const puzzles = [
     { 
@@ -50,9 +51,22 @@ function App() {
     const messageId = Date.now()
     setAiMessages(prev => [...prev, { id: messageId, text: message, duration }])
     
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setAiMessages(prev => prev.filter(msg => msg.id !== messageId))
+      setMessageTimeouts(prev => prev.filter(id => id !== timeoutId))
     }, duration)
+    
+    // Track this timeout so we can clear it later
+    setMessageTimeouts(prev => [...prev, timeoutId])
+  }
+
+  const clearAllAIMessages = () => {
+    // Clear all message timeouts
+    messageTimeouts.forEach(timeoutId => clearTimeout(timeoutId))
+    setMessageTimeouts([])
+    
+    // Clear all messages immediately
+    setAiMessages([])
   }
 
   const addTransitionMessage = (message, duration = 10000) => {
@@ -61,26 +75,24 @@ function App() {
     
     const timeoutId = setTimeout(() => {
       setAiMessages(prev => prev.filter(msg => msg.id !== messageId))
+      setMessageTimeouts(prev => prev.filter(id => id !== timeoutId))
     }, duration)
 
     // Store timeout ID for potential cleanup (only for transition messages)
     setActiveTimeout(timeoutId)
+    setMessageTimeouts(prev => [...prev, timeoutId])
   }
 
   const skipToNext = () => {
     if (!canSkip) return
     
-    // Clear any active timeouts
+    // Clear ALL timeouts and messages immediately
     if (activeTimeout) {
       clearTimeout(activeTimeout)
       setActiveTimeout(null)
     }
     
-    // Clear only transition messages, not game messages
-    setAiMessages(prev => prev.filter(msg => 
-      // Keep messages that are shorter (game messages are usually shorter duration)
-      msg.duration <= 10000
-    ))
+    clearAllAIMessages()
     
     // Handle different transition types
     switch (transitionType) {
@@ -116,6 +128,10 @@ function App() {
 
   const showIntroMessage = (puzzleIndex) => {
     const puzzle = puzzles[puzzleIndex]
+    
+    // Clear any existing messages first
+    clearAllAIMessages()
+    
     setShowPuzzle(false)
     setIsTransitioning(true)
     setCanSkip(true)
@@ -138,6 +154,10 @@ function App() {
   const completePuzzle = (puzzleIndex) => {
     if (!completedPuzzles.includes(puzzleIndex)) {
       setCompletedPuzzles(prev => [...prev, puzzleIndex])
+      
+      // Clear any existing messages first
+      clearAllAIMessages()
+      
       setShowPuzzle(false)
       setIsTransitioning(true)
       setCanSkip(true)
@@ -267,6 +287,7 @@ function App() {
           <CurrentPuzzleComponent 
             onComplete={() => completePuzzle(currentPuzzle)}
             addAIMessage={addAIMessage}
+            clearAllAIMessages={clearAllAIMessages}
           />
         ) : (
           <div 
