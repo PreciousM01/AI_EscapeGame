@@ -1,6 +1,6 @@
 # 🤖 AI Repair Lab - Interactive AI Education Experience
 
-An engaging escape room that teaches AI concepts, ethics, and responsible usage through interactive puzzles and challenges.
+A guided repair-lab experience where players restore a malfunctioning AI while learning essential AI concepts and responsible practices
 
 ## 🎯 Overview
 
