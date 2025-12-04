@@ -4,7 +4,7 @@ An engaging escape room that teaches AI concepts, ethics, and responsible usage 
 
 ## 🎯 Overview
 
-Players take on the role of new hires helping a glitched AI assistant restore its functions. Through 5 educational modules, participants learn essential AI concepts while solving puzzles in a futuristic tech company setting.
+Players take on the role of new hires helping a glitched AI assistant restore its functions. Through 5 educational modules, participants learn essential AI concepts while solving puzzles.
 
 ## 🧩 Learning Modules
 
@@ -88,6 +88,14 @@ bun run build
 
 This creates a `dist` folder with files you can host on any web server.
 
+## 🎮 How to Play
+
+1. Start the diagnostic sequence
+2. Complete each module by solving puzzles
+3. Receive AI feedback and guidance
+4. Progress through all 5 modules
+5. Celebrate your AI knowledge mastery!
+
 ## 🎨 Features
 
 - **Interactive storyline** with AI assistant guidance
@@ -119,14 +127,6 @@ Perfect for:
 - Corporate training
 - Public AI literacy events
 - Interactive learning experiences
-
-## 🎮 How to Play
-
-1. Start the diagnostic sequence
-2. Complete each module by solving puzzles
-3. Receive AI feedback and guidance
-4. Progress through all 5 modules
-5. Celebrate your AI knowledge mastery!
 
 ---
 
