@@ -1,9 +1,14 @@
+/*A series of quizes about what AI can and cannot do.
+Each question is stored as a struct that has the fields: id (int), question (string), options(struct), multiselect(bool).
+*/
+
 import { useState } from 'react'
 
 const AIBasicsQuiz = ({ onComplete, addAIMessage }) => {
   const [selectedAnswers, setSelectedAnswers] = useState({})
   const [showResults, setShowResults] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState(0)
+  const [showValidation, setShowValidation] = useState(false)
 
   const questions = [
     {
@@ -34,8 +39,8 @@ const AIBasicsQuiz = ({ onComplete, addAIMessage }) => {
       options: [
         { id: 'a', text: '🏥 Assisting doctors in medical diagnosis', correct: true },
         { id: 'b', text: '⚖️ Making final legal judgments without human oversight', correct: false },
-        { id: 'c', text: '📝 Helping with writing and editing tasks', correct: true },
-        { id: 'd', text: '🎲 Making all important life decisions for people', correct: false }
+        { id: 'c', text: '🎲 Making all important life decisions for people', correct: false  },
+        { id: 'd', text: '📝 Helping with writing and editing tasks', correct: true }
       ],
       multiSelect: true
     }
@@ -122,13 +127,13 @@ const AIBasicsQuiz = ({ onComplete, addAIMessage }) => {
               className={`option-button ${
                 selectedAnswers[question.id]?.[option.id] ? 'selected' : ''
               } ${
-                showResults ? (
+                (showResults || showValidation) ? (
                   option.correct ? 'correct' : 
                   selectedAnswers[question.id]?.[option.id] ? 'incorrect' : ''
                 ) : ''
               }`}
-              onClick={() => !showResults && handleAnswerSelect(question.id, option.id)}
-              disabled={showResults}
+              onClick={() => !showResults && !showValidation && handleAnswerSelect(question.id, option.id)}
+              disabled={showResults || showValidation}
             >
               {option.text}
             </button>
@@ -148,7 +153,13 @@ const AIBasicsQuiz = ({ onComplete, addAIMessage }) => {
           {currentQuestion < questions.length - 1 && !showResults && (
             <button 
               className="submit-button"
-              onClick={() => setCurrentQuestion(prev => prev + 1)}
+              onClick={() => {
+                setShowValidation(true)
+                setTimeout(() => {
+                  setCurrentQuestion(prev => prev + 1)
+                  setShowValidation(false)
+                }, 2500)
+              }}
               disabled={!selectedAnswers[question.id]}
             >
               Next →
@@ -173,10 +184,7 @@ const AIBasicsQuiz = ({ onComplete, addAIMessage }) => {
         </div>
       </div>
 
-      <div className="did-you-know">
-        <h4>💡 Did You Know?</h4>
-        <p>AI systems excel at pattern recognition and data processing but cannot truly "understand" concepts the way humans do. They work by finding statistical patterns in training data!</p>
-      </div>
+
     </div>
   )
 }
