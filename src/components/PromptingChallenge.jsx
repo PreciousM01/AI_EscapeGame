@@ -29,12 +29,12 @@ const PromptingChallenge = ({ onComplete, addAIMessage, clearAllAIMessages }) =>
       id: 2,
       scenario: "🤖 AI Response: 'Here's a 500-word essay about dogs in general.'",
       problem: "The user asked: 'Write about dogs'",
-      issue: "Too vague - the AI provided generic information instead of what the user actually wanted.",
+      issue: "Too vague - the user actually wanted an essay on how to care for a new dog. The AI provided generic information.",
       hint: "Be specific about what aspect of dogs you want to know about and the format you prefer.",
       explanation: "Specific prompts with clear requirements produce much better, targeted responses.",
       examples: [
-        "Write a guide on dog training tips for puppies",
-        "List the best dog breeds for families with children",
+        "Write an essay on dog training tips for new puppies",
+        "Tell me how to take care of a new dog",
         "Explain how to care for a new puppy",
         "Dog nutrition and feeding schedules guide"
       ]
@@ -184,15 +184,9 @@ const PromptingChallenge = ({ onComplete, addAIMessage, clearAllAIMessages }) =>
       addAIMessage(`Perfect! ${validation.reason} That's a much clearer prompt that would get better results.`)
       
       if (currentChallenge < challenges.length - 1) {
-        setWaitingForNext(true)
-        setCanSkipToNext(true)
-        
-        // Wait 10 seconds for user to read the message, then move to next
-        const timeoutId = setTimeout(() => {
+        setTimeout(() => {
           moveToNextChallenge()
-        }, 10000)
-        
-        setNextTimeout(timeoutId)
+        }, 2500)
       } else {
         setCompleted(true)
         setTimeout(() => onComplete(), 2000)
@@ -219,25 +213,7 @@ const PromptingChallenge = ({ onComplete, addAIMessage, clearAllAIMessages }) =>
     )
   }
 
-  if (waitingForNext) {
-    return (
-      <div className="challenge-container">
-        <div 
-          className="waiting-screen clickable"
-          onClick={skipToNextChallenge}
-          title="Click to continue to next challenge"
-        >
-          <div className="loading-content">
-            <div className="loading-spinner">✨</div>
-            <p>Preparing next communication test...</p>
-            <div className="skip-instruction">
-              <small>💡 Click anywhere to continue</small>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+
 
   return (
     <div className="challenge-container">
@@ -297,20 +273,7 @@ const PromptingChallenge = ({ onComplete, addAIMessage, clearAllAIMessages }) =>
         </div>
       </div>
 
-      <div className="did-you-know">
-        <h4>💡 Did You Know?</h4>
-        <p>Good prompts are specific, provide context, and clearly state the desired format or outcome. This is called "prompt engineering" and it's a crucial skill for working with AI!</p>
-        {currentChallenge === 0 && (
-          <p style={{marginTop: '0.5rem', fontSize: '0.9rem'}}>
-            <strong>Pro tip:</strong> When a word has multiple meanings (like "Apple"), always add context to clarify which one you mean!
-          </p>
-        )}
-        {currentChallenge === 1 && (
-          <p style={{marginTop: '0.5rem', fontSize: '0.9rem'}}>
-            <strong>Pro tip:</strong> Instead of asking about a topic in general, specify what aspect you want to know about and in what format!
-          </p>
-        )}
-      </div>
+
     </div>
   )
 }

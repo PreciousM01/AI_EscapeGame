@@ -9,9 +9,7 @@ const ResponsibleAI = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
   const [isRetaking, setIsRetaking] = useState(false)
   const [retakeIndex, setRetakeIndex] = useState(0)
   const [originalAttemptResults, setOriginalAttemptResults] = useState({})
-  const [waitingForNext, setWaitingForNext] = useState(false)
-  const [canSkipToNext, setCanSkipToNext] = useState(false)
-  const [nextTimeout, setNextTimeout] = useState(null)
+  const [showValidation, setShowValidation] = useState({})
 
   const scenarios = [
     {
@@ -54,15 +52,15 @@ const ResponsibleAI = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
         },
         {
           id: 'b',
-          text: "Ensure the AI doesn't replace human teachers and protects student privacy",
-          responsible: true,
-          feedback: "✅ Excellent! AI should enhance education while preserving human connection and protecting sensitive data."
-        },
-        {
-          id: 'c',
           text: "Use AI to automatically grade and rank all students",
           responsible: false,
           feedback: "❌ Automated ranking could introduce bias and reduce education to mere test scores."
+          },
+        {
+          id: 'c',
+          text: "Ensure the AI doesn't replace human teachers and protects student privacy",
+          responsible: true,
+          feedback: "✅ Excellent! AI should enhance education while preserving human connection and protecting sensitive data."
         }
       ]
     },
@@ -100,15 +98,15 @@ const ResponsibleAI = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
       choices: [
         {
           id: 'a',
-          text: "The AI might be slower than human recruiters",
-          responsible: false,
-          feedback: "❌ Speed isn't the main concern - fairness and bias prevention are much more important."
-        },
-        {
-          id: 'b',
           text: "The AI could perpetuate historical hiring biases against certain groups",
           responsible: true,
           feedback: "✅ Correct! AI can amplify existing biases in training data, leading to unfair discrimination."
+        },
+        {
+          id: 'b',
+          text: "The AI might be slower than human recruiters",
+          responsible: false,
+          feedback: "❌ Speed isn't the main concern - fairness and bias prevention are much more important."
         },
         {
           id: 'c',
@@ -279,17 +277,15 @@ const ResponsibleAI = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
       setScore(prev => prev + 1)
     }
     
-    // Show AI feedback message for 10 seconds
-    addAIMessage(choice.feedback, 10000)
-    setWaitingForNext(true)
-    setCanSkipToNext(true)
+    // Show validation colors and AI feedback
+    setShowValidation(prev => ({...prev, [scenario.id]: true}))
+    addAIMessage(choice.feedback, 4000)
     
-    // After 10 seconds, move to next scenario
-    const timeoutId = setTimeout(() => {
+    // Move to next scenario after 4-second delay
+    setTimeout(() => {
       moveToNextScenario()
-    }, 10000)
-    
-    setNextTimeout(timeoutId)
+      setShowValidation(prev => ({...prev, [scenario.id]: false}))
+    }, 4000)
   }
 
   if (showResults) {
@@ -309,25 +305,7 @@ const ResponsibleAI = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
     )
   }
 
-  if (waitingForNext) {
-    return (
-      <div className="puzzle-container">
-        <div 
-          className="waiting-screen clickable"
-          onClick={skipToNextScenario}
-          title="Click to continue to next question"
-        >
-          <div className="loading-content">
-            <div className="loading-spinner">⚖️</div>
-            <p>Processing ethical analysis...</p>
-            <div className="skip-instruction">
-              <small>💡 Click anywhere to continue</small>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+
 
   const scenario = getCurrentScenario()
   const questionNumber = isRetaking ? retakeIndex + 1 : currentScenario + 1
@@ -356,8 +334,14 @@ const ResponsibleAI = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
               key={choice.id}
               className={`option-button ${
                 selectedChoices[scenario.id] === choice.id ? 'selected' : ''
+              } ${
+                showValidation[scenario.id] ? (
+                  choice.responsible ? 'correct' : 
+                  selectedChoices[scenario.id] === choice.id ? 'incorrect' : ''
+                ) : ''
               }`}
-              onClick={() => handleChoice(scenario.id, choice.id)}
+              onClick={() => !showValidation[scenario.id] && handleChoice(scenario.id, choice.id)}
+              disabled={showValidation[scenario.id]}
               style={{textAlign: 'left', minHeight: '80px'}}
             >
               {choice.text}
@@ -368,8 +352,8 @@ const ResponsibleAI = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
         <button 
           className="submit-button"
           onClick={submitScenario}
-          disabled={!selectedChoices[scenario.id]}
-        >
+          disabled={!selectedChoices[scenario.id] || showValidation[scenario.id]}
+s        >
           ⚖️ Submit Ethical Choice
         </button>
 
@@ -396,15 +380,7 @@ const ResponsibleAI = ({ onComplete, addAIMessage, clearAllAIMessages }) => {
         </div>
       </div>
 
-      <div className="did-you-know">
-        <h4>💡 Did You Know?</h4>
-        <p>Responsible AI development involves considering fairness, transparency, accountability, and human oversight. AI should augment human capabilities, not replace human judgment in critical decisions!</p>
-        {isRetaking && (
-          <p style={{marginTop: '0.5rem', color: '#ff9500'}}>
-            <strong>Review tip:</strong> Think about what could go wrong and how to keep humans in control of important decisions.
-          </p>
-        )}
-      </div>
+
     </div>
   )
 }

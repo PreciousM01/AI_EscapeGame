@@ -4,20 +4,22 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
   const [foundClues, setFoundClues] = useState([])
   const [selectedPrivate, setSelectedPrivate] = useState([])
   const [selectedPublic, setSelectedPublic] = useState([])
+  const [lockedCorrect, setLockedCorrect] = useState([])
   const [showResults, setShowResults] = useState(false)
-  const [phase, setPhase] = useState('hunt') // 'hunt', 'sort', 'complete'
+  const [phase, setPhase] = useState('hunt')
+
 
   const dataClues = [
-    { id: 1, emoji: '📧', text: 'Email Address', shouldBePrivate: false, found: false },
-    { id: 2, emoji: '🔐', text: 'Password', shouldBePrivate: true, found: false },
-    { id: 3, emoji: '🏠', text: 'Home Address', shouldBePrivate: true, found: false },
-    { id: 4, emoji: '🎂', text: 'Age', shouldBePrivate: false, found: false },
-    { id: 5, emoji: '💳', text: 'Credit Card Number', shouldBePrivate: true, found: false },
-    { id: 6, emoji: '👤', text: 'Name', shouldBePrivate: false, found: false },
-    { id: 7, emoji: '🏥', text: 'Medical Records', shouldBePrivate: true, found: false },
-    { id: 8, emoji: '📱', text: 'Phone Number', shouldBePrivate: true, found: false },
-    { id: 9, emoji: '🎵', text: 'Music Preferences', shouldBePrivate: false, found: false },
-    { id: 10, emoji: '💼', text: 'Job Title', shouldBePrivate: false, found: false }
+    { id: 1, emoji: '📧', text: 'Email Address', shouldBePrivate: false },
+    { id: 2, emoji: '🔐', text: 'Password', shouldBePrivate: true },
+    { id: 3, emoji: '🏠', text: 'Home Address', shouldBePrivate: true },
+    { id: 4, emoji: '🎂', text: 'Age', shouldBePrivate: false },
+    { id: 5, emoji: '💳', text: 'Credit Card Number', shouldBePrivate: true },
+    { id: 6, emoji: '👤', text: 'Name', shouldBePrivate: false },
+    { id: 7, emoji: '🏥', text: 'Medical Records', shouldBePrivate: true },
+    { id: 8, emoji: '📱', text: 'Personal Phone Number', shouldBePrivate: true },
+    { id: 9, emoji: '🎵', text: 'Music Preferences', shouldBePrivate: false },
+    { id: 10, emoji: '💼', text: 'Job Title', shouldBePrivate: false }
   ]
 
   const clueLocations = [
@@ -33,12 +35,17 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
     "Within the network access point"
   ]
 
+  const isCorrectPlacement = (clueId, isPrivate) => {
+    const clue = dataClues.find(c => c.id === clueId)
+    return clue.shouldBePrivate === isPrivate
+  }
+
   const findClue = (clueId) => {
     if (!foundClues.includes(clueId)) {
       setFoundClues(prev => [...prev, clueId])
       const clue = dataClues.find(c => c.id === clueId)
       addAIMessage(`Data point discovered: ${clue.emoji} ${clue.text}`)
-      
+
       if (foundClues.length + 1 === dataClues.length) {
         setTimeout(() => {
           setPhase('sort')
@@ -49,20 +56,32 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
   }
 
   const togglePrivateSelection = (clueId) => {
+    if (lockedCorrect.includes(clueId)) return
+
     if (selectedPrivate.includes(clueId)) {
       setSelectedPrivate(prev => prev.filter(id => id !== clueId))
     } else {
       setSelectedPrivate(prev => [...prev, clueId])
       setSelectedPublic(prev => prev.filter(id => id !== clueId))
+
+      if (isCorrectPlacement(clueId, true)) {
+        setLockedCorrect(prev => [...prev, clueId])
+      }
     }
   }
 
   const togglePublicSelection = (clueId) => {
+    if (lockedCorrect.includes(clueId)) return
+
     if (selectedPublic.includes(clueId)) {
       setSelectedPublic(prev => prev.filter(id => id !== clueId))
     } else {
       setSelectedPublic(prev => [...prev, clueId])
       setSelectedPrivate(prev => prev.filter(id => id !== clueId))
+
+      if (isCorrectPlacement(clueId, false)) {
+        setLockedCorrect(prev => [...prev, clueId])
+      }
     }
   }
 
@@ -84,6 +103,108 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
       addAIMessage("Some data points are incorrectly categorized. Think about what information could be misused if exposed!")
     }
   }
+
+
+  if (phase === 'sort') {
+    return (
+      <div className="puzzle-container">
+        <div className="question-card">
+          <h3>🔐 Privacy Classification</h3>
+
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem'}}>
+            <div>
+              <h4 style={{color: '#ff4444'}}>🔒 Should Stay Private</h4>
+              <div style={{border: '2px dashed #ff4444', padding: '1rem'}}>
+                {selectedPrivate.map(id => {
+                  const clue = dataClues.find(c => c.id === id)
+                  const locked = lockedCorrect.includes(id)
+
+                  return (
+                    <div
+                      key={id}
+                      className={locked ? 'locked-correct' : ''}
+                      style={{
+                        background: 'rgba(255, 68, 68, 0.2)',
+                        padding: '0.5rem',
+                        margin: '0.5rem 0',
+                        borderRadius: '4px',
+                        cursor: locked ? 'default' : 'pointer'
+                      }}
+                      onClick={() => !locked && togglePrivateSelection(id)}
+                    >
+                      {clue.emoji} {clue.text} {locked && '🔒'}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div>
+              <h4 style={{color: '#00ff88'}}>🌐 Can Be Public</h4>
+              <div style={{border: '2px dashed #00ff88', padding: '1rem'}}>
+                {selectedPublic.map(id => {
+                  const clue = dataClues.find(c => c.id === id)
+                  const locked = lockedCorrect.includes(id)
+
+                  return (
+                    <div
+                      key={id}
+                      className={locked ? 'locked-correct' : ''}
+                      style={{
+                        background: 'rgba(0, 255, 136, 0.2)',
+                        padding: '0.5rem',
+                        margin: '0.5rem 0',
+                        borderRadius: '4px',
+                        cursor: locked ? 'default' : 'pointer'
+                      }}
+                      onClick={() => !locked && togglePublicSelection(id)}
+                    >
+                      {clue.emoji} {clue.text} {locked && '🔒'}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+            
+          <div>
+            <h4>📋 Unsorted Data Points:</h4>
+            <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem'}}>
+              {dataClues.filter(clue =>
+                !selectedPrivate.includes(clue.id) &&
+                !selectedPublic.includes(clue.id)
+              ).map(clue => (
+                <div key={clue.id} style={{display: 'flex', gap: '0.5rem'}}>
+                  <button
+                    className="option-button"
+                    onClick={() => togglePrivateSelection(clue.id)}
+                  >
+                    {clue.emoji} {clue.text} → Private
+                  </button>
+                  <button
+                    className="option-button"
+                    onClick={() => togglePublicSelection(clue.id)}
+                  >
+                    {clue.emoji} {clue.text} → Public
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            className="submit-button"
+            onClick={checkSorting}
+            disabled={selectedPrivate.length + selectedPublic.length !== dataClues.length}
+          >
+            🔍 Verify Privacy Settings
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+
 
   if (phase === 'hunt') {
     return (
@@ -130,6 +251,7 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
     )
   }
 
+
   if (phase === 'sort') {
     return (
       <div className="puzzle-container">
@@ -143,9 +265,22 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
               <div style={{minHeight: '200px', border: '2px dashed #ff4444', borderRadius: '8px', padding: '1rem'}}>
                 {selectedPrivate.map(id => {
                   const clue = dataClues.find(c => c.id === id)
+                  const locked = lockedCorrect.includes(id)
+
                   return (
-                    <div key={id} style={{background: 'rgba(255, 68, 68, 0.2)', padding: '0.5rem', margin: '0.5rem 0', borderRadius: '4px', cursor: 'pointer'}} onClick={() => togglePrivateSelection(id)}>
-                      {clue.emoji} {clue.text}
+                    <div
+                      key={id}
+                      className={locked ? 'locked-correct' : ''}
+                      style={{
+                        background: 'rgba(255, 68, 68, 0.2)',
+                        padding: '0.5rem',
+                        margin: '0.5rem 0',
+                        borderRadius: '4px',
+                        cursor: locked ? 'default' : 'pointer'
+                      }}
+                      onClick={() => !locked && togglePrivateSelection(id)}
+                    >
+                      {clue.emoji} {clue.text} {locked && '🔒'}
                     </div>
                   )
                 })}
@@ -157,9 +292,22 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
               <div style={{minHeight: '200px', border: '2px dashed #00ff88', borderRadius: '8px', padding: '1rem'}}>
                 {selectedPublic.map(id => {
                   const clue = dataClues.find(c => c.id === id)
+                  const locked = lockedCorrect.includes(id)
+
                   return (
-                    <div key={id} style={{background: 'rgba(0, 255, 136, 0.2)', padding: '0.5rem', margin: '0.5rem 0', borderRadius: '4px', cursor: 'pointer'}} onClick={() => togglePublicSelection(id)}>
-                      {clue.emoji} {clue.text}
+                    <div
+                      key={id}
+                      className={locked ? 'locked-correct' : ''}
+                      style={{
+                        background: 'rgba(0, 255, 136, 0.2)',
+                        padding: '0.5rem',
+                        margin: '0.5rem 0',
+                        borderRadius: '4px',
+                        cursor: locked ? 'default' : 'pointer'
+                      }}
+                      onClick={() => !locked && togglePublicSelection(id)}
+                    >
+                      {clue.emoji} {clue.text} {locked && '🔒'}
                     </div>
                   )
                 })}
@@ -193,7 +341,7 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
             </div>
           </div>
 
-          <button 
+          <button
             className="submit-button"
             onClick={checkSorting}
             disabled={selectedPrivate.length + selectedPublic.length !== dataClues.length}
@@ -202,10 +350,7 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
           </button>
         </div>
 
-        <div className="did-you-know">
-          <h4>💡 Did You Know?</h4>
-          <p>Personal data like passwords, medical records, and financial information should always be kept private. AI systems should only access the minimum data necessary for their function!</p>
-        </div>
+
       </div>
     )
   }
@@ -214,7 +359,7 @@ const PrivacyPuzzle = ({ onComplete, addAIMessage }) => {
     <div className="puzzle-container">
       <div className="success-message">
         <h3>🎉 Data Security Protocols Restored!</h3>
-        <p>You've successfully identified which data should remain private. Privacy protection is crucial in AI systems!</p>
+        <p>You've successfully identified which data should remain private.</p>
       </div>
     </div>
   )
